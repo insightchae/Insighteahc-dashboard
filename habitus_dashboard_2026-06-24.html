@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HABITUS US Tech Alpha — 스코어링 대시보드</title>
+<style>
+  :root{
+    --ink:#1b2735; --ink-soft:#5d6b7a; --line:#e3e9ef; --line-d:#cdd8e3;
+    --bg:#f4f7fa; --panel:#ffffff; --accent:#2f5d86; --accent-d:#1f3f5c;
+    --tint:#eef3f8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",
+      "Noto Sans KR","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; line-height:1.5;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:20px 16px 60px;}
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
+
+  /* header */
+  header{margin-bottom:18px;}
+  h1{font-size:21px; margin:0 0 2px; letter-spacing:-.01em;}
+  .sub{color:var(--ink-soft); font-size:13px;}
+  .stats{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; min-width:104px; flex:1;}
+  .stat .k{font-size:11px; color:var(--ink-soft); margin-bottom:3px;}
+  .stat .v{font-size:18px; font-weight:600; color:var(--accent-d);}
+  .stat .v small{font-size:12px; font-weight:500; color:var(--ink-soft);}
+
+  /* sector chart */
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px; margin-top:16px;}
+  .card h2{font-size:13px; margin:0 0 12px; color:var(--ink);
+    text-transform:none; font-weight:600;}
+  .sectorbars{display:flex; flex-direction:column; gap:7px;}
+  .sbar{display:grid; grid-template-columns:130px 1fr 96px; align-items:center; gap:10px;}
+  .sbar .nm{font-size:12px; color:var(--ink); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis;}
+  .sbar .track{background:var(--tint); border-radius:6px; height:20px; overflow:hidden;}
+  .sbar .fill{display:block; height:100%; border-radius:6px;}
+  .sbar .mt{font-size:11px; color:var(--ink-soft); text-align:right; white-space:nowrap;}
+
+  /* controls */
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    margin-top:16px;}
+  .controls input[type=search], .controls select{
+    font-size:13px; padding:7px 10px; border:1px solid var(--line-d);
+    border-radius:8px; background:var(--panel); color:var(--ink); font-family:inherit;}
+  .controls input[type=search]{min-width:160px;}
+  .riskbtns{display:flex; gap:4px; flex-wrap:wrap;}
+  .rb{font-size:12px; padding:5px 9px; border:1px solid var(--line-d);
+    border-radius:7px; background:var(--panel); cursor:pointer; color:var(--ink-soft);
+    user-select:none;}
+  .rb.active{color:#fff; border-color:transparent;}
+  .toggle{display:flex; align-items:center; gap:6px; font-size:12px;
+    color:var(--ink-soft); cursor:pointer; user-select:none;}
+  .toggle input{accent-color:var(--accent);}
+  .count{margin-left:auto; font-size:12px; color:var(--ink-soft);}
+
+  /* table */
+  .tablecard{background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; margin-top:14px; overflow:hidden;}
+  .scroll{overflow-x:auto;}
+  table{border-collapse:collapse; width:100%; min-width:680px;}
+  thead th{position:sticky; top:0; background:#f7fafc; z-index:2;
+    font-size:11px; color:var(--ink-soft); font-weight:600; text-align:right;
+    padding:10px 12px; border-bottom:1px solid var(--line-d); cursor:pointer;
+    white-space:nowrap;}
+  thead th.l{text-align:left;}
+  thead th.c{text-align:center;}
+  thead th .ar{color:var(--accent); font-size:9px; margin-left:2px;}
+  tbody td{padding:9px 12px; border-bottom:1px solid var(--line); text-align:right;
+    white-space:nowrap;}
+  tbody td.l{text-align:left;}
+  tbody td.c{text-align:center;}
+  tbody tr.row{cursor:pointer;}
+  tbody tr.row:hover{background:#f9fbfd;}
+  .tick{font-weight:600; color:var(--ink);}
+  .nm2{font-size:11px; color:var(--ink-soft); margin-top:1px;
+    max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rk{display:inline-block; width:22px; height:22px; line-height:22px;
+    border-radius:6px; color:#fff; font-size:11px; font-weight:700; text-align:center;}
+  .scorecell{font-weight:700; border-radius:6px; padding:3px 8px; color:#11261a;
+    display:inline-block; min-width:42px; text-align:center;}
+  .star{color:#e8a93a; font-size:13px;}
+  .src{font-size:10px; color:var(--ink-soft);}
+  .up{color:#1b8f4a;} .down{color:#cc3a35;}
+  .caret{color:var(--ink-soft); font-size:10px; transition:transform .15s;}
+  tr.open .caret{transform:rotate(90deg);}
+
+  /* expand panel */
+  tr.detail td{padding:0; border-bottom:1px solid var(--line); background:#fbfdff;}
+  .panel{padding:14px 16px; display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px 22px;}
+  .qline{display:grid; grid-template-columns:96px 1fr 30px; align-items:center; gap:8px;}
+  .qline .ql{font-size:11px; color:var(--ink-soft); white-space:nowrap;}
+  .qline .qtrack{background:var(--tint); border-radius:5px; height:10px; overflow:hidden;}
+  .qline .qfill{display:block; height:100%; border-radius:5px;}
+  .qline .qv{font-size:11px; text-align:right; color:var(--ink); font-weight:600;}
+  .qline .qv.na{color:#b3bcc6; font-weight:400;}
+  .pflag{grid-column:1/-1; font-size:11px; color:#b06a1e; margin-top:2px;}
+
+  /* eliminated */
+  .elim{margin-top:14px; font-size:12px; color:var(--ink-soft);}
+  .elim h2{font-size:13px; color:var(--ink); margin:0 0 8px;}
+  .elim .e{display:inline-block; background:var(--panel); border:1px solid var(--line);
+    border-radius:7px; padding:4px 9px; margin:0 6px 6px 0;}
+  .elim .e b{color:var(--ink);}
+
+  footer{margin-top:22px; font-size:11px; color:var(--ink-soft); line-height:1.6;}
+  .legend span{margin-right:14px; white-space:nowrap;}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:2px;
+    vertical-align:middle; margin-right:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>HABITUS US Tech Alpha</h1>
+    <div class="sub">밸류에이션 스코어링 대시보드 · 생성 2026-06-24 16:06</div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="card">
+    <h2>섹터별 분포 <span id="sectorMode" class="src" style="cursor:pointer;color:var(--accent)">[평균 점수 ▾]</span></h2>
+    <div class="sectorbars" id="sectorbars"></div>
+  </div>
+
+  <div class="controls">
+    <input type="search" id="search" placeholder="종목·이름 검색">
+    <select id="sectorSel"><option value="">전체 섹터</option></select>
+    <div class="riskbtns" id="riskbtns"></div>
+    <label class="toggle"><input type="checkbox" id="top10only"> Top10만</label>
+    <label class="toggle"><input type="checkbox" id="showElim"> 탈락 포함</label>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="elim" id="elimBox"></div>
+
+  <footer>
+    <div class="legend" id="legend"></div>
+    <div style="margin-top:8px">
+      매력도 점수는 9개 펀더멘털 질문의 가중평균(0~100). 행을 누르면 질문별 세부 점수가 펼쳐집니다.
+      Risk 등급 표시 <b>*</b>=수동 등급, <b>?</b>=자동 제안(0·5는 검토 권장).
+      ★=Top10 편입 후보. 세후 수익률은 양도세 22% 반영.
+    </div>
+  </footer>
+</div>
+
+<script>
+const DATA = [{"symbol": "NVDA", "name": "NVIDIA Corporation", "sector": "Technology", "price": 200.52, "target": 386.40618088142, "upper": 485.701472, "upside": 0.7230761075578875, "upside_pre": 0.9270206507152404, "composite": 92.76481732465903, "risk": 0, "risk_base": 0, "risk_label": "Monopoly 독점", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 7, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 68.1438365376364, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 100.0, "q5_moat": 100.0, "q6_confidence": 59.51871420741546, "q7_valuation": 100.0, "q8_health": 100.0, "q9_upside": 90.38451344473593}}, {"symbol": "TSM", "name": "Taiwan Semiconductor Manufacturing Company Limited", "sector": "Technology", "price": 440.605, "target": 596.6888118033, "upper": 704.2671344, "upside": 0.2763140981300122, "upside_pre": 0.35424884375642585, "composite": 73.95824618024042, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 15, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 73.55092541307172, "q2_growth": 82.33333666666667, "q3_revenue": 100.0, "q4_quality": 83.0411843637159, "q5_moat": 100.0, "q6_confidence": 68.02052149222568, "q7_valuation": 89.053, "q8_health": 99.8, "q9_upside": 34.53926226625152}}, {"symbol": "AVGO", "name": "Broadcom Inc.", "sector": "Technology", "price": 384.01, "target": 588.4579932334201, "upper": 668.1974252721801, "upside": 0.4152741718238267, "upside_pre": 0.5324027843895214, "composite": 79.93050889957566, "risk": 0, "risk_base": 0, "risk_label": "Monopoly 독점", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 13, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 65.17828518385701, "q5_moat": 100.0, "q6_confidence": 79.4466508023607, "q7_valuation": 100.0, "q8_health": 72.20080929786724, "q9_upside": 51.909271477978336}}, {"symbol": "MRVL", "name": "Marvell Technology, Inc.", "sector": "Technology", "price": 269.59, "target": 187.41641274696, "upper": 216.28954387684, "upside": -0.23775139306862716, "upside_pre": -0.3048094782931117, "composite": 48.52672328167087, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 30, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 21.037812394293354, "q5_moat": 0.0, "q6_confidence": 81.0875494826592, "q7_valuation": 65.15181835742925, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "INTC", "name": "Intel Corporation", "sector": "Technology", "price": 133.82, "target": 46.94577933958, "upper": 67.08751582000001, "upside": -0.5063659551272426, "upside_pre": -0.6491871219580033, "composite": 31.257330795083316, "risk": 4, "risk_base": 3, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 37, "eps_source": 1, "penalties": ["FCF음수(capex형) Risk+1"], "scores": {"q1_cash": 20.0, "q2_growth": 100.0, "q3_revenue": 25.919999999999998, "q4_quality": 0.0, "q5_moat": 0.0, "q6_confidence": 50.0, "q7_valuation": 49.199999999999996, "q8_health": 63.01663493854144, "q9_upside": 0.0}}, {"symbol": "ALAB", "name": "Astera Labs, Inc.", "sector": "Technology", "price": 403.2264, "target": 128.9415982792, "upper": 175.76322018000002, "upside": -0.5305757394412272, "upside_pre": -0.6802253069759322, "composite": 37.307799310446114, "risk": 3, "risk_base": 2, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 38, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 25.17352613054215, "q5_moat": 0.0, "q6_confidence": 56.087202184763164, "q7_valuation": 0.0, "q8_health": 60.0, "q9_upside": 0.0}}, {"symbol": "AMD", "name": "Advanced Micro Devices, Inc.", "sector": "Technology", "price": 517.22, "target": 397.78100579223997, "upper": 588.9130348, "upside": -0.18012144828516463, "upside_pre": -0.230924933698929, "composite": 45.021313720777705, "risk": 3, "risk_base": 3, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 27, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 0.0, "q5_moat": 0.0, "q6_confidence": 49.35897435897436, "q7_valuation": 80.72595772059756, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "ARM", "name": "Arm Holdings plc", "sector": "Technology", "price": 354.58, "target": 93.61986941826, "upper": 106.55076042, "upside": -0.5740563535838378, "upside_pre": -0.7359696840818433, "composite": 41.594889856778, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 39, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 80.4, "q4_quality": 4.03395021964846, "q5_moat": 26.868706429124728, "q6_confidence": 73.33213823656524, "q7_valuation": 0.0, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "ASML", "name": "ASML Holding N.V.", "sector": "Technology", "price": 1763.27, "target": 1272.0293879115, "upper": 1650.47431454, "upside": -0.21730516451197496, "upside_pre": -0.2785963647589422, "composite": 56.56074189636938, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 28, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 52.800000000000004, "q4_quality": 100.0, "q5_moat": 52.00426800929514, "q6_confidence": 62.22327623752335, "q7_valuation": 42.22367636252089, "q8_health": 81.0, "q9_upside": 0.0}}, {"symbol": "MU", "name": "Micron Technology, Inc.", "sector": "Technology", "price": 1037.995, "target": 3696.3691257183204, "upper": 4826.658378, "upside": 1.9976317978991134, "upside_pre": 2.561066407562966, "composite": 89.94107998662909, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 1, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 57.50046648252702, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 67.21713885418949, "q5_moat": 100.0, "q6_confidence": 50.0, "q7_valuation": 100.0, "q8_health": 100.0, "q9_upside": 100.0}}, {"symbol": "LRCX", "name": "Lam Research Corporation", "sector": "Technology", "price": 367.7753, "target": 243.093586736, "upper": 304.47411026, "upside": -0.2644324845793614, "upside_pre": -0.33901600587097613, "composite": 60.57926559691091, "risk": 0, "risk_base": 0, "risk_label": "Monopoly 독점", "risk_source": "auto-suggest", "top10": false, "eliminated": false, "reason": "", "rank": 32, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 90.55055954618078, "q2_growth": 100.0, "q3_revenue": 95.19999999999999, "q4_quality": 100.0, "q5_moat": 48.220364058869094, "q6_confidence": 75.28471528471529, "q7_valuation": 44.825167097603526, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "AMAT", "name": "Applied Materials, Inc.", "sector": "Technology", "price": 586.81, "target": 494.70182383957996, "upper": 585.938113284, "upside": -0.12243209455382083, "upside_pre": -0.15696422378694977, "composite": 56.09905294034285, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 24, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 72.33467727812913, "q2_growth": 100.0, "q3_revenue": 41.04, "q4_quality": 93.71134223072175, "q5_moat": 36.032145623547656, "q6_confidence": 68.13822485700908, "q7_valuation": 64.10042545363339, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "TER", "name": "Teradyne, Inc.", "sector": "Technology", "price": 425.005, "target": 289.8969948316, "upper": 348.12015522418005, "upside": -0.2479600099560052, "upside_pre": -0.3178974486615451, "composite": 52.61449157436524, "risk": 4, "risk_base": 3, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 31, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 71.83040495487637, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 55.480658661735035, "q5_moat": 58.17776917118513, "q6_confidence": 61.32184474451573, "q7_valuation": 61.48879073776411, "q8_health": 54.11666666666666, "q9_upside": 0.0}}, {"symbol": "CRDO", "name": "Credo Technology Group Holding Ltd", "sector": "Technology", "price": 270.55, "target": 270.54998738474006, "upper": 349.40149642, "upside": -3.636999726212425e-08, "upside_pre": -4.662820161810801e-08, "composite": 59.988185545819, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "auto", "top10": false, "eliminated": false, "reason": "", "rank": 20, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 83.19146676957533, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 64.48020913103153, "q5_moat": 50.617730441518205, "q6_confidence": 64.8707432329283, "q7_valuation": 100.0, "q8_health": 85.34, "q9_upside": 0.0}}, {"symbol": "MTSI", "name": "MACOM Technology Solutions Holdings, Inc.", "sector": "Technology", "price": 371.825, "target": 207.78491110212, "upper": 248.25416487600003, "upside": -0.34411690806251977, "upside_pre": -0.4411755231570766, "composite": 38.53317756524399, "risk": 4, "risk_base": 4, "risk_label": "주의", "risk_source": "auto", "top10": false, "eliminated": true, "reason": "B4: 이자보상배율 < 1", "rank": null, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 78.82848284602154, "q2_growth": 100.0, "q3_revenue": 90.0, "q4_quality": 6.984, "q5_moat": 0.0, "q6_confidence": 67.01945349803913, "q7_valuation": 36.92117143099786, "q8_health": 65.0, "q9_upside": 0.0}}, {"symbol": "DELL", "name": "Dell Technologies Inc.", "sector": "Technology", "price": 432.56, "target": 557.114766555, "upper": 718.2310517200001, "upside": 0.22459940334959302, "upside_pre": 0.28794795301229875, "composite": 44.71975586406923, "risk": 3, "risk_base": 3, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 16, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 90.38920235282542, "q2_growth": 21.500000000000004, "q3_revenue": 100.0, "q4_quality": 69.84110539942822, "q5_moat": 0.0, "q6_confidence": 32.35294117647059, "q7_valuation": 100.0, "q8_health": 49.842455621301774, "q9_upside": 28.074925418699127}}, {"symbol": "AAPL", "name": "Apple Inc.", "sector": "Technology", "price": 298.4528, "target": 293.67484159350005, "upper": 332.70550832000004, "upside": -0.012487091952462774, "upside_pre": -0.016009092246747146, "composite": 48.227868738539264, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 21, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 34.799998, "q3_revenue": 66.4, "q4_quality": 100.0, "q5_moat": 37.50000000000001, "q6_confidence": 84.91891213420014, "q7_valuation": 57.73790734469918, "q8_health": 70.25706666666667, "q9_upside": 0.0}}, {"symbol": "STX", "name": "Seagate Technology Holdings plc", "sector": "Technology", "price": 1005.11, "target": 822.33084108692, "upper": 1074.0073799600002, "upside": -0.14184292659729023, "upside_pre": -0.18184990589396183, "composite": 58.14951563917196, "risk": 3, "risk_base": 2, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 26, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 92.314972841176, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 100.0, "q5_moat": 50.64097598760653, "q6_confidence": 63.89316651691481, "q7_valuation": 91.10921599183459, "q8_health": 15.43093697579679, "q9_upside": 0.0}}, {"symbol": "CLS", "name": "Celestica Inc.", "sector": "Technology", "price": 366.265, "target": 454.13876896892003, "upper": 604.0912058, "upside": 0.18713647166875796, "upside_pre": 0.23991855342148458, "composite": 62.52089993840682, "risk": 3, "risk_base": 3, "risk_label": "보통", "risk_source": "auto", "top10": false, "eliminated": false, "reason": "", "rank": 19, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 92.17495097016483, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 91.96983177999255, "q5_moat": 0.0, "q6_confidence": 58.53030629146821, "q7_valuation": 100.0, "q8_health": 79.31666666666666, "q9_upside": 23.392058958594745}}, {"symbol": "MSFT", "name": "Microsoft Corporation", "sector": "Technology", "price": 373.7, "target": 587.2707566978, "upper": 622.91213784, "upside": 0.44577251866278844, "upside_pre": 0.571503229054857, "composite": 71.80205844813686, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 11, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 68.47370334329594, "q2_growth": 49.6, "q3_revenue": 73.2, "q4_quality": 71.59381161388382, "q5_moat": 91.91905499612703, "q6_confidence": 97.62755932781623, "q7_valuation": 95.389, "q8_health": 79.71666666666667, "q9_upside": 55.72156483284855}}, {"symbol": "ORCL", "name": "Oracle Corporation", "sector": "Technology", "price": 159.295, "target": 331.46332680536, "upper": 410.11418042, "upside": 0.8430352171014835, "upside_pre": 1.0808143808993378, "composite": 75.03657364865708, "risk": 4, "risk_base": 2, "risk_label": "주의", "risk_source": "auto", "top10": true, "eliminated": false, "reason": "", "rank": 6, "eps_source": 1, "penalties": ["FCF음수(capex형) Risk+1", "D/E과도 Risk+1"], "scores": {"q1_cash": 50.0, "q2_growth": 100.0, "q3_revenue": 82.39999999999999, "q4_quality": 61.77032434678922, "q5_moat": 52.70914020139428, "q6_confidence": 47.81647747403103, "q7_valuation": 100.0, "q8_health": 10.67149631190727, "q9_upside": 100.0}}, {"symbol": "APP", "name": "AppLovin Corporation", "sector": "Communication Services", "price": 463.765, "target": 641.27226060844, "upper": 790.7827091, "upside": 0.2985470297986765, "upside_pre": 0.3827526023059955, "composite": 78.2439112119041, "risk": 0, "risk_base": 0, "risk_label": "Monopoly 독점", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 14, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 100.0, "q5_moat": 100.0, "q6_confidence": 57.152806633693395, "q7_valuation": 91.483, "q8_health": 77.4224, "q9_upside": 37.31837872483455}}, {"symbol": "PLTR", "name": "Palantir Technologies Inc.", "sector": "Technology", "price": 114.27, "target": 63.20402898794, "upper": 82.56925024000002, "upside": -0.3485731809696928, "upside_pre": -0.4468886935508882, "composite": 56.75006334403289, "risk": 1, "risk_base": 0, "risk_label": "매우 안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 36, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 98.02144341540824, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 57.01709281349291, "q5_moat": 91.3690821068939, "q6_confidence": 55.72708890671302, "q7_valuation": 47.47683070279022, "q8_health": 60.46, "q9_upside": 0.0}}, {"symbol": "NOW", "name": "ServiceNow, Inc.", "sector": "Technology", "price": 95.335, "target": 152.59192076798, "upper": 161.47479356402, "upside": 0.46845752555750164, "upside_pre": 0.6005865712275662, "composite": 59.689986229368856, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 10, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 73.06666666666666, "q3_revenue": 88.4, "q4_quality": 18.634670555302797, "q5_moat": 0.0, "q6_confidence": 80.43160111325744, "q7_valuation": 100.0, "q8_health": 75.0, "q9_upside": 58.5571906946877}}, {"symbol": "INTU", "name": "Intuit Inc.", "sector": "Technology", "price": 266.675, "target": 829.4794560645001, "upper": 878.1725464496, "upside": 1.6461515917514207, "upside_pre": 2.1104507586556673, "composite": 79.64999210885397, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 2, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 48.833330000000004, "q3_revenue": 41.6, "q4_quality": 37.52577088673123, "q5_moat": 94.42873741285825, "q6_confidence": 97.58064516129032, "q7_valuation": 100.0, "q8_health": 82.55, "q9_upside": 100.0}}, {"symbol": "LITE", "name": "Lumentum Holdings Inc.", "sector": "Technology", "price": 846.35, "target": 550.40510428274, "upper": 723.69519328, "upside": -0.2727441586335001, "upside_pre": -0.34967199824807704, "composite": 40.388448026963715, "risk": 4, "risk_base": 4, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": true, "reason": "B4: 이자보상배율 < 1", "rank": null, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 63.29014806378132, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 25.669995999999994, "q5_moat": 0.0, "q6_confidence": 48.68421052631579, "q7_valuation": 78.49257595002717, "q8_health": 29.994333333333337, "q9_upside": 0.0}}, {"symbol": "CIEN", "name": "Ciena Corporation", "sector": "Technology", "price": 473.93, "target": 292.57928121072, "upper": 343.93735486, "upside": -0.29846931119709325, "upside_pre": -0.38265296307319646, "composite": 44.6871096645531, "risk": 4, "risk_base": 4, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 34, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 10.927999999999995, "q5_moat": 0.0, "q6_confidence": 69.72532467754401, "q7_valuation": 75.20662008617508, "q8_health": 65.96327102165085, "q9_upside": 0.0}}, {"symbol": "COHR", "name": "Coherent Corp.", "sector": "Technology", "price": 390.86, "target": 248.21743370218002, "upper": 299.92065896, "upside": -0.2846574264757192, "upside_pre": -0.36494541855861434, "composite": 39.886544919038016, "risk": 3, "risk_base": 2, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 33, "eps_source": 1, "penalties": ["FCF음수(capex형) Risk+1"], "scores": {"q1_cash": 50.0, "q2_growth": 100.0, "q3_revenue": 82.0, "q4_quality": 0.0, "q5_moat": 0.0, "q6_confidence": 67.31519444959811, "q7_valuation": 77.01329363070161, "q8_health": 65.0, "q9_upside": 0.0}}, {"symbol": "FN", "name": "Fabrinet", "sector": "Technology", "price": 585.055, "target": 524.1881530778601, "upper": 553.3961146600001, "upside": -0.0811481665813797, "upside_pre": -0.10403611100176885, "composite": 46.889587704715545, "risk": 5, "risk_base": 4, "risk_label": "위험", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 23, "eps_source": 1, "penalties": ["FCF음수(capex형) Risk+1"], "scores": {"q1_cash": 50.0, "q2_growth": 83.60000000000001, "q3_revenue": 100.0, "q4_quality": 30.79455124347286, "q5_moat": 0.0, "q6_confidence": 78.94256470745616, "q7_valuation": 88.38836378902305, "q8_health": 100.0, "q9_upside": 0.0}}, {"symbol": "META", "name": "Meta Platforms, Inc.", "sector": "Communication Services", "price": 563.7625, "target": 1060.15304903462, "upper": 1240.36013412, "upside": 0.6867867732369632, "upside_pre": 0.8804958631243118, "composite": 70.61242488104014, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 8, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 72.63009646986268, "q2_growth": 21.200000000000003, "q3_revenue": 100.0, "q4_quality": 71.94432118597726, "q5_moat": 44.82362063123876, "q6_confidence": 69.11683803115808, "q7_valuation": 100.0, "q8_health": 97.46666666666667, "q9_upside": 85.8483466546204}}, {"symbol": "GOOGL", "name": "Alphabet Inc.", "sector": "Communication Services", "price": 350.4299, "target": 440.45504068558, "upper": 521.52195556, "upside": 0.2003813308589034, "upside_pre": 0.2568991421267992, "composite": 50.62673860205866, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 17, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 60.89277334322256, "q2_growth": 6.766666333333333, "q3_revenue": 87.2, "q4_quality": 87.49567565624602, "q5_moat": 30.176379368761246, "q6_confidence": 71.04504324028235, "q7_valuation": 89.116, "q8_health": 90.36666666666666, "q9_upside": 25.047666357362925}}, {"symbol": "NFLX", "name": "Netflix, Inc.", "sector": "Communication Services", "price": 72.13, "target": 116.22046960068, "upper": 125.37169246, "upside": 0.4767858905937947, "upside_pre": 0.6112639622997368, "composite": 59.98056142914083, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 9, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 21.9, "q3_revenue": 64.8, "q4_quality": 89.60847762366045, "q5_moat": 17.737959029424793, "q6_confidence": 68.54464103809808, "q7_valuation": 87.088, "q8_health": 81.02573333333333, "q9_upside": 59.59823632422434}}, {"symbol": "AMZN", "name": "Amazon.com, Inc.", "sector": "Consumer Cyclical", "price": 241.01, "target": 299.88028502514, "upper": 346.36586222, "upside": 0.1905266267773503, "upside_pre": 0.24426490612480808, "composite": 43.6210334593886, "risk": 3, "risk_base": 3, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 18, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 56.75030354149412, "q2_growth": 46.7, "q3_revenue": 66.4, "q4_quality": 35.86626262364486, "q5_moat": 10.46666666666666, "q6_confidence": 65.80762100855392, "q7_valuation": 74.96799999999999, "q8_health": 77.29, "q9_upside": 23.815828347168786}}, {"symbol": "TSLA", "name": "Tesla, Inc.", "sector": "Consumer Cyclical", "price": 381.615, "target": 75.88933718290001, "upper": 110.8006483, "upside": -0.624886382865815, "upside_pre": -0.8011363882895064, "composite": 28.205666666666666, "risk": 3, "risk_base": 3, "risk_label": "보통", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 40, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 71.03333333333333, "q3_revenue": 63.2, "q4_quality": 0.0, "q5_moat": 0.0, "q6_confidence": 25.0, "q7_valuation": 0.0, "q8_health": 92.38333333333334, "q9_upside": 0.0}}, {"symbol": "WMT", "name": "Walmart Inc.", "sector": "Consumer Defensive", "price": 119.73, "target": 99.78797454924, "upper": 109.88995804000001, "upside": -0.12991547524925082, "upside_pre": -0.1665583016016036, "composite": 30.836848249472734, "risk": 4, "risk_base": 4, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 25, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 68.86394455122621, "q2_growth": 43.50000000000001, "q3_revenue": 29.2, "q4_quality": 39.84401238844758, "q5_moat": 0.0, "q6_confidence": 82.14412516080795, "q7_valuation": 32.00624106817614, "q8_health": 60.69019269519333, "q9_upside": 0.0}}, {"symbol": "JPM", "name": "JPMorgan Chase & Co.", "sector": "Financial Services", "price": 333.85, "target": 715.3684486694, "upper": 754.9622255400001, "upside": 0.8913715439932064, "upside_pre": 1.142784030760521, "composite": 71.73692466058412, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 4, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 75.0, "q2_growth": 18.333333333333336, "q3_revenue": 50.8, "q4_quality": 21.550003333333333, "q5_moat": 100.0, "q6_confidence": 92.9003032573014, "q7_valuation": 76.78899999999999, "q8_health": 100.0, "q9_upside": 100.0}}, {"symbol": "CAT", "name": "Caterpillar Inc.", "sector": "Industrials", "price": 1000.515, "target": 914.09745582608, "upper": 1075.52519706, "upside": -0.06737098839663332, "upside_pre": -0.08637306204696578, "composite": 55.46130388829689, "risk": 4, "risk_base": 3, "risk_label": "주의", "risk_source": "manual", "top10": false, "eliminated": false, "reason": "", "rank": 22, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 75.0306538294561, "q2_growth": 74.66666333333333, "q3_revenue": 88.8, "q4_quality": 71.98157671407677, "q5_moat": 100.0, "q6_confidence": 77.9532309784991, "q7_valuation": 56.17745346188285, "q8_health": 44.724733333333326, "q9_upside": 0.0}}, {"symbol": "FSLR", "name": "First Solar, Inc.", "sector": "Technology", "price": 253.45, "target": 705.22760906088, "upper": 902.19048424, "upside": 1.3903591835371334, "upside_pre": 1.7825117737655556, "composite": 78.84005951968237, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "manual", "top10": true, "eliminated": false, "reason": "", "rank": 3, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 93.07241159245265, "q2_growth": 100.0, "q3_revenue": 94.39999999999999, "q4_quality": 25.087845722383083, "q5_moat": 40.56738962044928, "q6_confidence": 44.84763373649824, "q7_valuation": 100.0, "q8_health": 100.0, "q9_upside": 100.0}}, {"symbol": "BE", "name": "Bloom Energy Corporation", "sector": "Industrials", "price": 337.73, "target": 132.46050544384002, "upper": 181.83448858000003, "upside": -0.4740775345803002, "upside_pre": -0.6077917110003849, "composite": 39.3658, "risk": 5, "risk_base": 5, "risk_label": "위험", "risk_source": "auto-suggest", "top10": false, "eliminated": true, "reason": "B4: 이자보상배율 < 1", "rank": null, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 100.0, "q3_revenue": 100.0, "q4_quality": 0.0, "q5_moat": 37.50000000000001, "q6_confidence": 50.0, "q7_valuation": 38.657999999999994, "q8_health": 25.0, "q9_upside": 0.0}}, {"symbol": "GEV", "name": "GE Vernova Inc.", "sector": "Industrials", "price": 1063.72, "target": 739.8417315898, "upper": 902.79761108, "upside": -0.23749205557849437, "upside_pre": -0.304476994331403, "composite": 31.356419747233797, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "auto", "top10": false, "eliminated": false, "reason": "", "rank": 29, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 0.0, "q3_revenue": 65.2, "q4_quality": 60.0, "q5_moat": 0.0, "q6_confidence": 51.962933256885115, "q7_valuation": 59.17407064704964, "q8_health": 72.77472527472527, "q9_upside": 0.0}}, {"symbol": "ABBV", "name": "AbbVie Inc.", "sector": "Healthcare", "price": 233.99, "target": 492.06962542476, "upper": 529.11104106, "upside": 0.8603021831330945, "upside_pre": 1.1029515168373005, "composite": 73.53409093088264, "risk": 2, "risk_base": 2, "risk_label": "안전", "risk_source": "auto", "top10": true, "eliminated": false, "reason": "", "rank": 5, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 46.26666666666667, "q3_revenue": 49.6, "q4_quality": 11.949683403427263, "q5_moat": 100.0, "q6_confidence": 90.05456428156336, "q7_valuation": 100.0, "q8_health": 43.44704724932862, "q9_upside": 100.0}}, {"symbol": "HIMS", "name": "Hims & Hers Health, Inc.", "sector": "Healthcare", "price": 33.15, "target": 20.33874914, "upper": 29.445651740000002, "upside": -0.3014411967058823, "upside_pre": -0.38646307269984914, "composite": 26.25219411138902, "risk": 5, "risk_base": 4, "risk_label": "위험", "risk_source": "auto", "top10": false, "eliminated": false, "reason": "", "rank": 35, "eps_source": 1, "penalties": ["D/E과도 Risk+1"], "scores": {"q1_cash": 20.0, "q2_growth": 100.0, "q3_revenue": 13.68, "q4_quality": 0.0, "q5_moat": 0.0, "q6_confidence": 2.777777777777777, "q7_valuation": 56.273052225001294, "q8_health": 46.483333333333334, "q9_upside": 0.0}}, {"symbol": "UNH", "name": "UnitedHealth Group Incorporated", "sector": "Healthcare", "price": 406.93, "target": 635.37432692126, "upper": 683.92838526, "upside": 0.4378801636610298, "upside_pre": 0.5613848252064484, "composite": 50.859851606972924, "risk": 4, "risk_base": 4, "risk_label": "주의", "risk_source": "auto", "top10": false, "eliminated": false, "reason": "", "rank": 12, "eps_source": 1, "penalties": [], "scores": {"q1_cash": 100.0, "q2_growth": 46.06666666666667, "q3_revenue": 7.2, "q4_quality": 5.221904589961302, "q5_moat": 37.50000000000001, "q6_confidence": 95.52353905992824, "q7_valuation": 87.457, "q8_health": 42.398560212201595, "q9_upside": 54.735020457628714}}, {"symbol": "QQQ", "name": "Invesco QQQ Trust", "sector": "기타", "price": 715.42, "target": null, "upper": null, "upside": null, "upside_pre": null, "composite": 100.0, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "auto", "top10": false, "eliminated": true, "reason": "B1: EPS 추정 없음", "rank": null, "eps_source": 0, "penalties": [], "scores": {"q1_cash": null, "q2_growth": null, "q3_revenue": null, "q4_quality": null, "q5_moat": null, "q6_confidence": null, "q7_valuation": null, "q8_health": 100.0, "q9_upside": null}}, {"symbol": "SOXX", "name": "iShares Semiconductor ETF", "sector": "기타", "price": 601.4101, "target": null, "upper": null, "upside": null, "upside_pre": null, "composite": 100.0, "risk": 1, "risk_base": 1, "risk_label": "매우 안전", "risk_source": "auto", "top10": false, "eliminated": true, "reason": "B1: EPS 추정 없음", "rank": null, "eps_source": 0, "penalties": [], "scores": {"q1_cash": null, "q2_growth": null, "q3_revenue": null, "q4_quality": null, "q5_moat": null, "q6_confidence": null, "q7_valuation": null, "q8_health": 100.0, "q9_upside": null}}];
+const META = {"anchor_pe": 30.356342, "treasury": 4.406000137329102, "nasdaq_growth": null, "tax_rate": 0.22, "fetched_at": "2026-06-24T16:05:41", "n_live": 40, "n_elim": 5, "n_top10": 10};
+const QLABELS = [{"key": "q1_cash", "label": "Q1 흑자·현금"}, {"key": "q2_growth", "label": "Q2 EPS 성장"}, {"key": "q3_revenue", "label": "Q3 매출 뒷받침"}, {"key": "q4_quality", "label": "Q4 자본효율"}, {"key": "q5_moat", "label": "Q5 마진·해자"}, {"key": "q6_confidence", "label": "Q6 추정신뢰도"}, {"key": "q7_valuation", "label": "Q7 밸류에이션"}, {"key": "q8_health", "label": "Q8 재무건전성"}, {"key": "q9_upside", "label": "Q9 상승여력"}];
+const RISKLABELS = {"0": "Monopoly 독점", "1": "매우 안전", "2": "안전", "3": "보통", "4": "주의", "5": "위험"};
+
+// risk 색상 (0=독점 초록 ... 5=위험 빨강)
+const RISK_COL = ["#1b6e3a","#3f9142","#82b54a","#e8b939","#e07b2f","#cf3a35"];
+
+// 점수 → 색상 (0 빨강 → 50 노랑 → 100 초록)
+function scoreColor(v){
+  if(v===null||v===undefined) return "#eef1f4";
+  v = Math.max(0,Math.min(100,v));
+  let r,g,b;
+  if(v<50){ const t=v/50; r=211+(245-211)*t; g=58+(180-58)*t; b=53+(57-53)*t; }
+  else{ const t=(v-50)/50; r=245+(27-245)*t; g=180+(158-180)*t; b=57+(74-57)*t; }
+  return `rgb(${r|0},${g|0},${b|0})`;
+}
+function scoreText(v){ return (v===null||v===undefined)?"#b3bcc6":(v<55?"#fff":"#11261a"); }
+function fmt(v,d=1){ return (v===null||v===undefined)?"–":Number(v).toFixed(d); }
+function pct(v,d=1){ return (v===null||v===undefined)?"–":(v*100).toFixed(d)+"%"; }
+
+const state = {sort:{col:"rank",dir:1}, sector:"", risk:null, top10:false,
+  showElim:false, search:"", sectorMode:"score"};
+
+const live = DATA.filter(d=>!d.eliminated);
+const elim = DATA.filter(d=>d.eliminated);
+
+// ---- stats ----
+function renderStats(){
+  const s=[
+    ["앵커 PER", fmt(META.anchor_pe,1)+"<small>x</small>"],
+    ["미국채 10년", fmt(META.treasury,3)+"<small>%</small>"],
+    ["평가 종목", META.n_live+"<small> 종목</small>"],
+    ["Top10 후보", META.n_top10+"<small> 종목</small>"],
+    ["세율", (META.tax_rate*100).toFixed(0)+"<small>%</small>"],
+  ];
+  document.getElementById("stats").innerHTML = s.map(
+    x=>`<div class="stat"><div class="k">${x[0]}</div><div class="v num">${x[1]}</div></div>`
+  ).join("");
+}
+
+// ---- sector chart ----
+function renderSectorChart(){
+  const by={};
+  live.forEach(d=>{
+    const k=d.sector||"기타";
+    if(!by[k]) by[k]={n:0,sum:0,cnt:0};
+    by[k].n++;
+    if(d.composite!==null&&d.composite!==undefined){ by[k].sum+=d.composite; by[k].cnt++; }
+  });
+  let rows=Object.keys(by).map(k=>({
+    sector:k, n:by[k].n, avg: by[k].cnt? by[k].sum/by[k].cnt : null
+  }));
+  const mode=state.sectorMode;
+  if(mode==="score") rows.sort((a,b)=>(b.avg||-1)-(a.avg||-1));
+  else rows.sort((a,b)=>b.n-a.n);
+  const maxN=Math.max(...rows.map(r=>r.n));
+  document.getElementById("sectorbars").innerHTML = rows.map(r=>{
+    const w = mode==="score" ? (r.avg||0) : (r.n/maxN*100);
+    const col = mode==="score" ? scoreColor(r.avg) : "#5b86b0";
+    const meta = mode==="score"
+      ? `${r.n}종목 · 평균 ${r.avg!==null?r.avg.toFixed(0):"–"}점`
+      : `${r.n}종목`;
+    return `<div class="sbar"><div class="nm" title="${r.sector}">${r.sector}</div>`+
+      `<div class="track"><div class="fill" style="width:${w}%;background:${col}"></div></div>`+
+      `<div class="mt num">${meta}</div></div>`;
+  }).join("");
+}
+
+// ---- controls setup ----
+function setupControls(){
+  // sector options
+  const secs=[...new Set(live.map(d=>d.sector))].sort();
+  const sel=document.getElementById("sectorSel");
+  secs.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; sel.appendChild(o); });
+  sel.onchange=()=>{ state.sector=sel.value; render(); };
+  // risk buttons
+  const rb=document.getElementById("riskbtns");
+  let html=`<div class="rb active" data-r="all">전체</div>`;
+  for(let g=0; g<=5; g++) html+=`<div class="rb" data-r="${g}" style="--c:${RISK_COL[g]}">${g}</div>`;
+  rb.innerHTML=html;
+  rb.querySelectorAll(".rb").forEach(b=>{
+    b.onclick=()=>{
+      rb.querySelectorAll(".rb").forEach(x=>{x.classList.remove("active");x.style.background="";x.style.color="";});
+      b.classList.add("active");
+      const r=b.dataset.r;
+      if(r==="all"){ state.risk=null; }
+      else{ state.risk=+r; b.style.background=RISK_COL[+r]; b.style.color="#fff"; }
+      render();
+    };
+  });
+  document.getElementById("search").oninput=e=>{ state.search=e.target.value.toLowerCase(); render(); };
+  document.getElementById("top10only").onchange=e=>{ state.top10=e.target.checked; render(); };
+  document.getElementById("showElim").onchange=e=>{ state.showElim=e.target.checked; renderElim(); };
+  document.getElementById("sectorMode").onclick=()=>{
+    state.sectorMode = state.sectorMode==="score"?"count":"score";
+    document.getElementById("sectorMode").textContent =
+      state.sectorMode==="score"?"[평균 점수 ▾]":"[종목 수 ▾]";
+    renderSectorChart();
+  };
+}
+
+// ---- table ----
+const COLS=[
+  {k:"rank", t:"#", cls:"c", w:1},
+  {k:"symbol", t:"종목", cls:"l"},
+  {k:"price", t:"현재가", fmt:d=>fmt(d.price,2)},
+  {k:"target", t:"목표가", fmt:d=>fmt(d.target,1)},
+  {k:"upside", t:"세후수익", fmt:d=>`<span class="${d.upside>=0?'up':'down'}">${pct(d.upside)}</span>`},
+  {k:"composite", t:"매력도", cls:"c", special:"score"},
+  {k:"risk", t:"Risk", cls:"c", special:"risk"},
+  {k:"top10", t:"편입", cls:"c", fmt:d=>d.top10?'<span class="star">★</span>':""},
+];
+
+function renderHead(){
+  document.getElementById("thead").innerHTML = COLS.map(c=>{
+    const ar = state.sort.col===c.k ? `<span class="ar">${state.sort.dir>0?'▲':'▼'}</span>` : "";
+    return `<th class="${c.cls||''}" data-k="${c.k}">${c.t}${ar}</th>`;
+  }).join("")+`<th></th>`;
+  document.querySelectorAll("thead th[data-k]").forEach(th=>{
+    th.onclick=()=>{
+      const k=th.dataset.k;
+      if(state.sort.col===k) state.sort.dir*=-1;
+      else { state.sort.col=k; state.sort.dir = (k==="symbol")?1:-1; }
+      render();
+    };
+  });
+}
+
+function filtered(){
+  let rows=live.slice();
+  if(state.sector) rows=rows.filter(d=>d.sector===state.sector);
+  if(state.risk!==null) rows=rows.filter(d=>d.risk===state.risk);
+  if(state.top10) rows=rows.filter(d=>d.top10);
+  if(state.search){
+    const q=state.search;
+    rows=rows.filter(d=>d.symbol.toLowerCase().includes(q)||d.name.toLowerCase().includes(q));
+  }
+  const c=state.sort.col, dir=state.sort.dir;
+  rows.sort((a,b)=>{
+    let va=a[c], vb=b[c];
+    if(c==="symbol"){ return dir*String(va).localeCompare(String(vb)); }
+    if(va===null||va===undefined) va=-Infinity;
+    if(vb===null||vb===undefined) vb=-Infinity;
+    return dir*(va-vb);
+  });
+  return rows;
+}
+
+function srcMark(d){
+  if(d.risk_source==="manual") return '<span class="src">*</span>';
+  if(d.risk_source==="auto-suggest") return '<span class="src">?</span>';
+  return "";
+}
+
+function renderTable(){
+  const rows=filtered();
+  document.getElementById("count").textContent = `${rows.length} 종목 표시`;
+  const tb=document.getElementById("tbody");
+  tb.innerHTML="";
+  rows.forEach((d,i)=>{
+    const tr=document.createElement("tr");
+    tr.className="row"; tr.dataset.sym=d.symbol;
+    tr.innerHTML = COLS.map(c=>{
+      if(c.special==="score"){
+        const bg=scoreColor(d.composite), col=scoreText(d.composite);
+        return `<td class="c"><span class="scorecell num" style="background:${bg};color:${col}">${d.composite!==null?d.composite.toFixed(0):'–'}</span></td>`;
+      }
+      if(c.special==="risk"){
+        const g=d.risk; const bg=(g!==null&&g!==undefined)?RISK_COL[g]:"#aaa";
+        return `<td class="c"><span class="rk num" style="background:${bg}" title="${d.risk_label}">${g}</span>${srcMark(d)}</td>`;
+      }
+      if(c.k==="symbol"){
+        return `<td class="l"><span class="tick">${d.symbol}</span><div class="nm2">${d.name}</div></td>`;
+      }
+      if(c.k==="rank"){
+        return `<td class="c num">${d.rank||''}</td>`;
+      }
+      const val = c.fmt?c.fmt(d):d[c.k];
+      return `<td class="${c.cls||''} num">${val}</td>`;
+    }).join("") + `<td class="c"><span class="caret">▶</span></td>`;
+    tr.onclick=()=>toggleRow(tr,d);
+    tb.appendChild(tr);
+  });
+}
+
+function toggleRow(tr,d){
+  const next=tr.nextSibling;
+  if(next && next.classList && next.classList.contains("detail")){
+    next.remove(); tr.classList.remove("open"); return;
+  }
+  document.querySelectorAll("tr.detail").forEach(x=>x.remove());
+  document.querySelectorAll("tr.open").forEach(x=>x.classList.remove("open"));
+  tr.classList.add("open");
+  const dt=document.createElement("tr"); dt.className="detail";
+  const td=document.createElement("td"); td.colSpan=COLS.length+1;
+  let qs = QLABELS.map(q=>{
+    const v=d.scores[q.key];
+    const w=(v===null||v===undefined)?0:v;
+    const col=scoreColor(v);
+    const vtxt=(v===null||v===undefined)?'<span class="qv na">n/a</span>':`<span class="qv num">${v.toFixed(0)}</span>`;
+    return `<div class="qline"><span class="ql">${q.label}</span>`+
+      `<span class="qtrack"><span class="qfill" style="width:${w}%;background:${col}"></span></span>${vtxt}</div>`;
+  }).join("");
+  let pf = (d.penalties&&d.penalties.length)?
+    `<div class="pflag">감점: ${d.penalties.join(" · ")} (Risk ${d.risk_base}→${d.risk})</div>`:"";
+  td.innerHTML=`<div class="panel">${qs}${pf}</div>`;
+  dt.appendChild(td); tr.parentNode.insertBefore(dt,tr.nextSibling);
+}
+
+function renderElim(){
+  const box=document.getElementById("elimBox");
+  if(!state.showElim || elim.length===0){ box.innerHTML=""; return; }
+  box.innerHTML=`<h2>탈락 종목 (${elim.length})</h2>`+
+    elim.map(d=>`<span class="e"><b>${d.symbol}</b> · ${d.reason}</span>`).join("");
+}
+
+function renderLegend(){
+  let r=RISK_COL.map((c,g)=>`<span><span class="dot" style="background:${c}"></span>${g} ${RISKLABELS[g]}</span>`).join("");
+  document.getElementById("legend").innerHTML="Risk: "+r;
+}
+
+function render(){ renderHead(); renderTable(); }
+
+renderStats();
+renderSectorChart();
+setupControls();
+renderLegend();
+render();
+</script>
+</body>
+</html>
